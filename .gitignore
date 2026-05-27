@@ -1,0 +1,16 @@
+# Switch build
+switch/build/
+switch/*.elf
+switch/*.nso
+switch/*.map
+
+# Android build
+android/.gradle/
+android/app/build/
+android/local.properties
+*.keystore
+
+# IDE
+.idea/
+*.iml
+.vscode/
