@@ -1,107 +1,43 @@
-#---------------------------------------------------------------------------------
-# pull in common sysmodule rules
-#---------------------------------------------------------------------------------
-TARGET		:=	mhxx-macro
-BUILD		:=	build
-SOURCES		:=	source
-DATA		:=	data
-INCLUDES	:=	include
+#--------------------------------------------------------------
+# MHXX Macro Controller - Switch Sysmodule
+#--------------------------------------------------------------
+TARGET  := mhxx-macro
+SOURCES := .
 
-#---------------------------------------------------------------------------------
-# options for code generation
-#---------------------------------------------------------------------------------
-ARCH	:=	-march=armv8-a+crc+crypto -mtune=cortex-a57 -mtp=soft -fPIE
+DEVKITPRO ?= /opt/devkitpro
+DEVKITA64 ?= $(DEVKITPRO)/devkitA64
 
-CFLAGS	:=	-g -Wall -O2 -ffunction-sections \
-			$(ARCH) $(DEFINES)
+export PATH := $(DEVKITA64)/bin:$(DEVKITPRO)/tools/bin:$(PATH)
 
-CFLAGS	+=	$(INCLUDE) -D__SWITCH__
+CC  := aarch64-none-elf-gcc
+CXX := aarch64-none-elf-g++
+LD  := aarch64-none-elf-g++
 
-CXXFLAGS	:= $(CFLAGS) -fno-rtti -fno-exceptions -std=gnu++17
+ARCH    := -march=armv8-a+crc+crypto -mtune=cortex-a57 -mtp=soft -fPIE
+CFLAGS  := -g -Wall -O2 -ffunction-sections $(ARCH) -D__SWITCH__
+CXXFLAGS := $(CFLAGS) -fno-rtti -fno-exceptions -std=gnu++17
+LDFLAGS := -specs=$(DEVKITPRO)/libnx/switch.specs -g $(ARCH)
 
-ASFLAGS	:=	-g $(ARCH)
-LDFLAGS	=	-specs=$(DEVKITPRO)/libnx/switch.specs -g $(ARCH) -Wl,-Map,$(notdir $*.map)
+INCLUDE  := -I$(DEVKITPRO)/libnx/include
+LIBPATHS := -L$(DEVKITPRO)/libnx/lib
+LIBS     := -lnx
 
-LIBS	:= -lnx
+CPPFILES := $(wildcard *.cpp)
+OFILES   := $(CPPFILES:.cpp=.o)
 
-#---------------------------------------------------------------------------------
-# no real need to edit anything past this point unless you need to add additional
-# rules for different file extensions
-#---------------------------------------------------------------------------------
-ifneq ($(BUILD),$(notdir $(CURDIR)))
-#---------------------------------------------------------------------------------
+.PHONY: all clean
 
-export OUTPUT	:=	$(CURDIR)/$(TARGET)
-export TOPDIR	:=	$(CURDIR)
+all: $(TARGET).nso
 
-export VPATH	:=	$(foreach dir,$(SOURCES),$(CURDIR)/$(dir)) \
-			$(foreach dir,$(DATA),$(CURDIR)/$(dir))
+$(TARGET).nso: $(TARGET).elf
+	elf2nso $< $@
+	@echo "Built: $@"
 
-export DEPSDIR	:=	$(CURDIR)/$(BUILD)
-
-CFILES		:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.c)))
-CPPFILES	:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.cpp)))
-SFILES		:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.s)))
-BINFILES	:=	$(foreach dir,$(DATA),$(notdir $(wildcard $(dir)/*.*)))
-
-#---------------------------------------------------------------------------------
-# use CXX for linking C++ projects, CC for standard C
-#---------------------------------------------------------------------------------
-ifeq ($(strip $(CPPFILES)),)
-	export LD	:=	$(CC)
-else
-	export LD	:=	$(CXX)
-endif
-
-export OFILES_BIN	:=	$(addsuffix .o,$(BINFILES))
-export OFILES_SRC	:=	$(CPPFILES:.cpp=.o) $(CFILES:.c=.o) $(SFILES:.s=.o)
-export OFILES		:=	$(OFILES_BIN) $(OFILES_SRC)
-export HFILES_BIN	:=	$(addsuffix .h,$(subst .,_,$(BINFILES)))
-
-export INCLUDE	:=	$(foreach dir,$(INCLUDES),-I$(CURDIR)/$(dir)) \
-			$(foreach dir,$(LIBDIRS),-I$(dir)/include) \
-			-I$(CURDIR)/$(BUILD) \
-			-I$(DEVKITPRO)/libnx/include
-
-export LIBPATHS	:=	$(foreach dir,$(LIBDIRS),-L$(dir)/lib) \
-			-L$(DEVKITPRO)/libnx/lib
-
-.PHONY: $(BUILD) clean all
-
-#---------------------------------------------------------------------------------
-all: $(BUILD)
-
-$(BUILD):
-	@[ -d $@ ] || mkdir -p $@
-	@$(MAKE) --no-print-directory -C $(BUILD) -f $(CURDIR)/Makefile
-
-clean:
-	@echo clean ...
-	@rm -fr $(BUILD) $(TARGET).nsp $(TARGET).nso $(TARGET).elf
-
-#---------------------------------------------------------------------------------
-else
-.PHONY: all
-
-DEPENDS	:=	$(OFILES:.o=.d)
-
-all: $(OUTPUT).nsp
-
-%.nsp: %.nso
-	@elf2nso $< $@
-	@echo built ... $(notdir $@)
-
-%.nso: $(OUTPUT).elf
-	@nso2nsp $< $@
-
-$(OUTPUT).elf: $(OFILES)
-
-$(OFILES_SRC): $(HFILES_BIN)
+$(TARGET).elf: $(OFILES)
+	$(LD) $(LDFLAGS) $^ $(LIBPATHS) $(LIBS) -o $@
 
 %.o: %.cpp
-	@echo $(notdir $<)
-	$(CXX) -MMD -MP -MF $(DEPSDIR)/$*.d $(CXXFLAGS) -c $< -o $@
+	$(CXX) $(CXXFLAGS) $(INCLUDE) -c $< -o $@
 
--include $(DEPENDS)
-
-endif
+clean:
+	rm -f *.o *.elf *.nso *.map
