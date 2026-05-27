@@ -19,9 +19,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install libnx & tools
-        run: dkp-pacman -Syu --noconfirm switch-dev
-
       - name: Build
         working-directory: Switch
         run: make -j$(nproc)
