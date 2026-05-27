@@ -22,7 +22,7 @@ INCLUDE  := -I$(DEVKITPRO)/libnx/include
 LIBPATHS := -L$(DEVKITPRO)/libnx/lib
 LIBS     := -lnx
 
-CPPFILES := $(wildcard *.cpp)
+CPPFILES := $(wildcard source/*.cpp)
 OFILES   := $(CPPFILES:.cpp=.o)
 
 .PHONY: all clean
